@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Lighting Sandbox</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+
+  <body onload="main()">
+
+    <h1>Lighting Sandbox</h1>
+
+    <canvas id="webgl" width="800" height="600">
+      Please use a browser that supports "canvas"
+    </canvas>
+
+    <div id="stats">
+      <p id="numdot">Performance: -- ms, -- fps</p>
+    </div>
+
+    <div id="controls-panel">
+      <h2>Keyboard Controls</h2>
+      
+      <div class="control-group">
+        <h3>Camera Movement</h3>
+        <div class="control-item">
+          <span class="key">W</span>
+          <span class="action">Move forward</span>
+        </div>
+        <div class="control-item">
+          <span class="key">S</span>
+          <span class="action">Move backward</span>
+        </div>
+        <div class="control-item">
+          <span class="key">A</span>
+          <span class="action">Move left</span>
+        </div>
+        <div class="control-item">
+          <span class="key">D</span>
+          <span class="action">Move right</span>
+        </div>
+      </div>
+
+      <div class="control-group">
+        <h3>Normalization</h3>
+        <div class="control-item">
+          <span class="key" id="normalOn">Normal On</span>
+        </div>
+        <div class="control-item">
+          <span class="key" id="normalOff">Normal Off</span>
+        </div>
+      </div>
+
+      <div class="control-group">
+        <h3>Light Position Sliders</h3>
+        <p>Light X: <input type="range" min="-250" max="250" value="0" id="lightSlideX"></p>
+        <p>Light Y: <input type="range" min="-250" max="250" value="100" id="lightSlideY"></p>
+        <p>Light Z: <input type="range" min="-250" max="250" value="200" id="lightSlideZ"></p>
+      </div>
+        
+      <div class="control-group">
+        <h3>Camera Rotation</h3>
+        <div class="control-item">
+          <span class="key">Q</span>
+          <span class="action">Rotate camera left</span>
+        </div>
+        <div class="control-item">
+          <span class="key">E</span>
+          <span class="action">Rotate camera right</span>
+        </div>
+        <div class="control-item">
+          <span class="key">Mouse</span>
+          <span class="action">Click and drag to look around</span>
+        </div>
+      </div>
+      
+    </div>
+
+    <!-- Loading Scripts -->
+
+    <!-- library files (WebGL) -->
+    <script src="lib/cuon-matrix.js"></script>
+    <script src="lib/cuon-utils.js"></script>
+    <script src="lib/webgl-debug.js"></script>
+    <script src="lib/webgl-utils.js"></script>
+
+    <!-- Project files -->
+    <script src="src/Point.js"></script>
+    <script src="src/Vector.js"></script>
+    <script src="src/Triangle.js"></script>
+    <script src="src/Circle.js"></script>
+    <script src="src/Cube.js"></script>
+    <script src="src/Camera.js"></script>
+    <script src="src/Sphere.js"></script>
+
+    <!-- Main Lighting file -->
+    <script src="src/Lighting.js"></script>
+
+  </body>
+</html>
