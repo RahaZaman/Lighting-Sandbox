@@ -32,11 +32,13 @@ var FSHADER_SOURCE = `
   uniform int u_whichTexture;
   uniform vec3 u_lightPos;
   uniform vec3 u_cameraPos;
+  uniform vec3 u_lightColor;
+  uniform vec3 u_spotlightDir;
+  uniform float u_spotlightCutoff;
   varying vec4 v_VertPos;
   uniform bool u_lightOn;
 
   void main() {
-
     if (u_whichTexture == -3) { 
       gl_FragColor = vec4((v_Normal + 1.0) / 2.0, 1.0);           // Use normal debug color
     } 
@@ -56,18 +58,8 @@ var FSHADER_SOURCE = `
       gl_FragColor = vec4(1,.2,.2,1);               // Error, use Redish
     }
 
-    vec3 lightVector =  u_lightPos - vec3(v_VertPos);
-    float r=length(lightVector);
-
-    // Red/Green Distance Visualization
-    // if (r < 1.0) {
-    //   gl_FragColor = vec4(1,0,0,1);
-    // } else if (r < 2.0) {
-    //   gl_FragColor = vec4(0,1,0,1);
-    // }
-
-    // Light falloff Visualization 1/r^2
-    // gl_FragColor = vec4(vec3(gl_FragColor)/(r*r), 1);
+    vec3 lightVector = u_lightPos - vec3(v_VertPos);
+    float r = length(lightVector);
 
     // N dot L
     vec3 L = normalize(lightVector);
@@ -83,11 +75,22 @@ var FSHADER_SOURCE = `
     // Specular
     float specular = pow(max(dot(E, R), 0.0), 64.0) * 0.8;
 
-    vec3 diffuse = vec3(1.0, 1.0, 0.9) * vec3(gl_FragColor) * nDotL * 0.7;
+    vec3 diffuse = u_lightColor * vec3(gl_FragColor) * nDotL * 0.7;
     vec3 ambient = vec3(gl_FragColor) * 0.2;
+    
     if (u_lightOn) {
+      // Spotlight calculation
+      vec3 spotlightDir = normalize(u_spotlightDir);
+      float cosAngle = dot(-L, spotlightDir);
+      float cutoff = cos(radians(u_spotlightCutoff));
+      float spotlightEffect = 0.0;
+      
+      if (cosAngle > cutoff) {
+        spotlightEffect = pow(cosAngle, 32.0); // Soft edge
+      }
+      
       if (u_whichTexture == 0) {
-        gl_FragColor = vec4(specular + diffuse + ambient, 1.0);
+        gl_FragColor = vec4((specular + diffuse + ambient) * spotlightEffect, 1.0);
       }
       else {
         gl_FragColor = vec4(diffuse + ambient, 1.0);
@@ -110,6 +113,9 @@ let u_GlobalRotateMatrix;
 let u_lightPos;
 let u_cameraPos;
 let u_lightOn;
+let u_lightColor;
+let u_spotlightDir;
+let u_spotlightCutoff;
 
 // Mouse and camera
 var g_lastMouseX = -1;
@@ -120,7 +126,6 @@ function setupWebGL() {
   canvas = document.getElementById('webgl');
 
   // Get the rendering context for WebGL
-  // gl = getWebGLContext(canvas);
   gl = canvas.getContext("webgl", { preserveDrawingBuffer: true});
   if (!gl) {
     console.log('Failed to get the rendering context for WebGL');
@@ -172,12 +177,12 @@ function connectVariablesToGLSL() {
     return;
   }
 
-   // Get the storage location of u_cameraPos
-   u_cameraPos = gl.getUniformLocation(gl.program, 'u_cameraPos');
-   if (!u_cameraPos) {
-     console.log('Failed to get the storage location of u_cameraPos');
-     return;
-   }
+  // Get the storage location of u_cameraPos
+  u_cameraPos = gl.getUniformLocation(gl.program, 'u_cameraPos');
+  if (!u_cameraPos) {
+    console.log('Failed to get the storage location of u_cameraPos');
+    return;
+  }
 
   // Get the storage location of u_lightOn
   u_lightOn = gl.getUniformLocation(gl.program, 'u_lightOn');
@@ -242,6 +247,27 @@ function connectVariablesToGLSL() {
     return;
   }
 
+  // Get the storage location of u_lightColor
+  u_lightColor = gl.getUniformLocation(gl.program, 'u_lightColor');
+  if (!u_lightColor) {
+    console.log('Failed to get the storage location of u_lightColor');
+    return;
+  }
+
+  // Get the storage location of u_spotlightDir
+  u_spotlightDir = gl.getUniformLocation(gl.program, 'u_spotlightDir');
+  if (!u_spotlightDir) {
+    console.log('Failed to get the storage location of u_spotlightDir');
+    return;
+  }
+
+  // Get the storage location of u_spotlightCutoff
+  u_spotlightCutoff = gl.getUniformLocation(gl.program, 'u_spotlightCutoff');
+  if (!u_spotlightCutoff) {
+    console.log('Failed to get the storage location of u_spotlightCutoff');
+    return;
+  }
+
   // Set an initial value for this matrix to identity 
   var identityM = new Matrix4();
   gl.uniformMatrix4fv(u_ModelMatrix, false, identityM.elements);
@@ -252,9 +278,12 @@ let g_selectedColor = [1.0, 1.0, 1.0, 1.0];
 let g_selectedSize = 5;
 let g_globalAngle = 0;
 let g_normalOn = false;
-// holds light position
+// holds light position and color
 let g_lightPos = [0, 1, -2];
+let g_lightColor = [1.0, 1.0, 0.9];
 let g_lightOn = false;
+let g_spotlightDir = [0, -1, 0]; // spotlight direction (pointing down)
+let g_spotlightCutoff = 0.0; // cutoff angle
 
 // map or world creation
 var g_map = [];
@@ -285,6 +314,18 @@ function addActionsForHTMLUI() {
   document.getElementById('lightSlideY').addEventListener('mousemove', function(ev) {if(ev.buttons === 1) {g_lightPos[1] = this.value / 100; renderAllShapes();}});
   document.getElementById('lightSlideZ').addEventListener('mousemove', function(ev) {if(ev.buttons === 1) {g_lightPos[2] = this.value / 100; renderAllShapes();}});
 
+  // Light color sliders
+  document.getElementById('lightColorR').addEventListener('mousemove', function(ev) {if(ev.buttons === 1) {g_lightColor[0] = this.value / 100; renderAllShapes();}});
+  document.getElementById('lightColorG').addEventListener('mousemove', function(ev) {if(ev.buttons === 1) {g_lightColor[1] = this.value / 100; renderAllShapes();}});
+  document.getElementById('lightColorB').addEventListener('mousemove', function(ev) {if(ev.buttons === 1) {g_lightColor[2] = this.value / 100; renderAllShapes();}});
+
+  // Spotlight direction sliders
+  document.getElementById('spotlightDirX').addEventListener('mousemove', function(ev) {if(ev.buttons === 1) {g_spotlightDir[0] = this.value / 100; renderAllShapes();}});
+  document.getElementById('spotlightDirY').addEventListener('mousemove', function(ev) {if(ev.buttons === 1) {g_spotlightDir[1] = this.value / 100; renderAllShapes();}});
+  document.getElementById('spotlightDirZ').addEventListener('mousemove', function(ev) {if(ev.buttons === 1) {g_spotlightDir[2] = this.value / 100; renderAllShapes();}});
+
+  // Spotlight cutoff slider
+  document.getElementById('spotlightCutoff').addEventListener('mousemove', function(ev) {if(ev.buttons === 1) {g_spotlightCutoff = this.value; renderAllShapes();}});
 }
 
 function initTextures() {
@@ -371,13 +412,13 @@ function sendTextureToTEXTURE1(image) {
   console.log('Dirt texture loaded successfully');
 }
 
-// Add this function to handle mouse movement
+// handles mouse movement
 function mousemove(ev) {
   if (g_isMouseDown) {
     // Only rotate if mouse button is pressed
     const x = ev.clientX;
     
-    // If we have a last position, calculate the movement
+    // calculate the movement from last mouse position
     if (g_lastMouseX !== -1) {
       const deltaX = x - g_lastMouseX;
       if (deltaX !== 0) {
@@ -458,8 +499,11 @@ function tick() {
 function updateAnimationAngles() {
 
   // to make the light move in a circle or animate
-  g_lightPos[0] = 4 * Math.cos(g_seconds);
-  // g_lightPos[2] = 4 * Math.sin(g_seconds);
+  // Animate X from -2 to 5 (based on the cube position)
+  const minX = -2;
+  const maxX = 5;
+  const t = (Math.sin(g_seconds) + 1) / 2; // t goes from 0 to 1
+  g_lightPos[0] = minX + (maxX - minX) * t;
 }
 
 // performs the keyboard input
@@ -536,20 +580,34 @@ function renderAllShapes() {
   // Pass the light on/off to GLSL
   gl.uniform1i(u_lightOn, g_lightOn);
 
+  // Pass the light color to GLSL
+  gl.uniform3f(u_lightColor, g_lightColor[0], g_lightColor[1], g_lightColor[2]);
+
+  // Pass the spotlight direction to GLSL
+  gl.uniform3f(u_spotlightDir, g_spotlightDir[0], g_spotlightDir[1], g_spotlightDir[2]);
+
+  // Pass the spotlight cutoff to GLSL
+  gl.uniform1f(u_spotlightCutoff, g_spotlightCutoff);
+
+  // Calculate normal matrix for proper normal transformation
+  var normalMatrix = new Matrix4();
+  normalMatrix.setInverseOf(globalRotMat).transpose();
+  gl.uniformMatrix4fv(u_NormalMatrix, false, normalMatrix.elements);
+
   // Draw the light
   var light = new Cube();
   light.color = [2,2,0,1];
   light.matrix.translate(g_lightPos[0], g_lightPos[1], g_lightPos[2]);
-  light.matrix.scale(-0.1, -0.1, -0.1);
+  light.matrix.scale(-0.2, -0.2, -0.2);
   light.matrix.translate(-.5, -.5, -.5);
   light.render();
 
   // Draw the floor
   var floor = new Floor();
   floor.textureNum = 0; // Use grass texture
-  floor.textureRepeat = 40; // Repeat texture many times for better appearance
+  floor.textureRepeat = 40; 
   floor.matrix.translate(0, -0.75, 0.0);
-  floor.matrix.scale(100, 0.1, 100);  // Make it 100x larger in x and z dimensions
+  floor.matrix.scale(100, 0.1, 100);  
   floor.matrix.translate(-0.5, 0, -0.5);
   floor.render();
 
@@ -562,17 +620,23 @@ function renderAllShapes() {
 
   // Draw cube
   var cube = new Cube();
-  if (g_normalOn) cube.textureNum = -3;
+  if (g_normalOn) {
+    cube.textureNum = -3; // Use normal debug color
+  } else {
+    cube.textureNum = -2; // Use color
+  }
   cube.color = [0.2, 0.8, 1.0, 1.0]; // Light blue for visibility
   cube.matrix.translate(5, 5, 5);    // Centered at origin
   cube.matrix.scale(-7, -7, -7);    
-  // cube.normalMatrix.setInverseOf(cube.matrix).transpose();
   cube.render();
 
   // Draw sphere
   var sphere = new Sphere();
-  if (g_normalOn) sphere.textureNum =-2;
-  // sphere.color = [0.2, 0.8, 1.0, 1.0]; // Light blue for visibility
+  if (g_normalOn) {
+    sphere.textureNum = -3; // Use normal debug color
+  } else {
+    sphere.textureNum = -2; // Use color
+  }
   sphere.matrix.translate(1, 1, 1);    // Centered at origin
   sphere.matrix.scale(-1, -1, -1);        
   sphere.render();

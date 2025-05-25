@@ -67,9 +67,6 @@ class Floor extends Cube {
 
         const repeat = this.textureRepeat;
         
-        // Only render the top face with repeated texture
-        // Top face (which will be the floor)
-        
         // First triangle
         drawTriangle3DUV(
             [0,1,0, 0,1,1, 1,1,1], 

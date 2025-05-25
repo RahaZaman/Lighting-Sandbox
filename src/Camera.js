@@ -1,7 +1,7 @@
 class Camera {
   constructor(width, height) {
     this.fov = 60;
-    this.eye = new Vector3([0, 1.5, 10]);  // Start higher and further back
+    this.eye = new Vector3([0, 1.5, 5]);  // Start higher
     this.at = new Vector3([0, 0.5, 0]);    // Look at the center of the scene
     this.up = new Vector3([0, 1, 0]);      // Up direction
 
@@ -55,11 +55,11 @@ class Camera {
     this.updateViewMatrix();
   }
 
-  moveBackward(speed = 1.0) {  // Increased speed for larger world
+  moveBackward(speed = 1.0) {
     this.moveForward(-speed);  // Reuse moveForward with negative speed
   }
 
-  moveLeft(speed = 1.0) {  // Increased speed for larger world
+  moveLeft(speed = 1.0) {  
     // Calculate forward direction
     let forward = new Vector3([
       this.at.elements[0] - this.eye.elements[0],
@@ -70,8 +70,6 @@ class Camera {
     // Calculate left direction (up × forward) manually instead of using Vector3.cross
     let left = new Vector3([0, 0, 0]);
     
-    // Manual cross product calculation: up × forward
-    // cross product formula: (a2*b3 - a3*b2, a3*b1 - a1*b3, a1*b2 - a2*b1)
     let upE = this.up.elements;
     let forwardE = forward.elements;
     
@@ -124,7 +122,7 @@ class Camera {
     this.updateViewMatrix();
   }
 
-  panRight(alpha = 8) {  // Increased rotation angle for faster turning
+  panRight(alpha = 8) {
     this.panLeft(-alpha);  // Reuse panLeft with negative angle
   }
 

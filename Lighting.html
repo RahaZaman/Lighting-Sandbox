@@ -52,7 +52,7 @@
       </div>
 
       <div class="control-group">
-        <h3>Light On/Off</h3>
+        <h3>Lighting</h3>
         <div class="control-item">
           <span class="key" id="lightOn">Light On</span>
         </div>
@@ -62,12 +62,61 @@
       </div>
   
       <div class="control-group">
-        <h3>Light Position Sliders</h3>
-        <p>Light X: <input type="range" min="-250" max="250" value="0" id="lightSlideX"></p>
-        <p>Light Y: <input type="range" min="-250" max="250" value="100" id="lightSlideY"></p>
-        <p>Light Z: <input type="range" min="-250" max="250" value="200" id="lightSlideZ"></p>
+        <h3>Light Position</h3>
+        <div class="control-item">
+          <span class="label">X:</span>
+          <input type="range" id="lightSlideX" min="-100" max="100" value="0">
+        </div>
+        <div class="control-item">
+          <span class="label">Y:</span>
+          <input type="range" id="lightSlideY" min="-100" max="100" value="0">
+        </div>
+        <div class="control-item">
+          <span class="label">Z:</span>
+          <input type="range" id="lightSlideZ" min="-100" max="100" value="0">
+        </div>
       </div>
-        
+
+      <div class="control-group">
+        <h3>Light Color</h3>
+        <div class="control-item">
+          <span class="label">Red:</span>
+          <input type="range" id="lightColorR" min="0" max="100" value="100">
+        </div>
+        <div class="control-item">
+          <span class="label">Green:</span>
+          <input type="range" id="lightColorG" min="0" max="100" value="100">
+        </div>
+        <div class="control-item">
+          <span class="label">Blue:</span>
+          <input type="range" id="lightColorB" min="0" max="100" value="90">
+        </div>
+      </div>
+
+      <div class="control-group">
+        <h3>Spotlight Direction</h3>
+        <div class="control-item">
+          <span class="label">X:</span>
+          <input type="range" id="spotlightDirX" min="-100" max="100" value="0">
+        </div>
+        <div class="control-item">
+          <span class="label">Y:</span>
+          <input type="range" id="spotlightDirY" min="-100" max="100" value="-100">
+        </div>
+        <div class="control-item">
+          <span class="label">Z:</span>
+          <input type="range" id="spotlightDirZ" min="-100" max="100" value="0">
+        </div>
+      </div>
+
+      <div class="control-group">
+        <h3>Spotlight Cutoff</h3>
+        <div class="control-item">
+          <span class="label">Angle:</span>
+          <input type="range" id="spotlightCutoff" min="0" max="100" value="0">
+        </div>
+      </div>
+
       <div class="control-group">
         <h3>Camera Rotation</h3>
         <div class="control-item">
@@ -95,10 +144,7 @@
     <script src="lib/webgl-utils.js"></script>
 
     <!-- Project files -->
-    <script src="src/Point.js"></script>
-    <script src="src/Vector.js"></script>
     <script src="src/Triangle.js"></script>
-    <script src="src/Circle.js"></script>
     <script src="src/Cube.js"></script>
     <script src="src/Camera.js"></script>
     <script src="src/Sphere.js"></script>
