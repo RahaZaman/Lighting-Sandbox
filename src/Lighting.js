@@ -8,6 +8,7 @@ var VSHADER_SOURCE = `
   varying vec3 v_Normal;
   varying vec4 v_VertPos;
   uniform mat4 u_ModelMatrix;
+  uniform mat4 u_NormalMatrix;
   uniform mat4 u_GlobalRotateMatrix;
   uniform mat4 u_ViewMatrix;
   uniform mat4 u_ProjectionMatrix;
@@ -15,7 +16,8 @@ var VSHADER_SOURCE = `
   void main() {
     gl_Position = u_ProjectionMatrix * u_ViewMatrix * u_GlobalRotateMatrix * u_ModelMatrix * a_Position;
     v_UV = a_UV;
-    v_Normal = a_Normal;
+    // v_Normal = a_Normal;
+    v_Normal = normalize(vec3(u_NormalMatrix * vec4(a_Normal, 1.0)));
     v_VertPos = u_ModelMatrix * a_Position;
   }`
 
@@ -29,7 +31,9 @@ var FSHADER_SOURCE = `
   uniform sampler2D u_Sampler1;
   uniform int u_whichTexture;
   uniform vec3 u_lightPos;
+  uniform vec3 u_cameraPos;
   varying vec4 v_VertPos;
+  uniform bool u_lightOn;
 
   void main() {
 
@@ -52,14 +56,43 @@ var FSHADER_SOURCE = `
       gl_FragColor = vec4(1,.2,.2,1);               // Error, use Redish
     }
 
-    vec3 lightVector = vec3(v_VertPos) - u_lightPos;
+    vec3 lightVector =  u_lightPos - vec3(v_VertPos);
     float r=length(lightVector);
-    if (r < 1.0) {
-      gl_FragColor = vec4(1,0,0,1);
-    } else if (r < 2.0) {
-      gl_FragColor = vec4(0,1,0,1);
-    }
 
+    // Red/Green Distance Visualization
+    // if (r < 1.0) {
+    //   gl_FragColor = vec4(1,0,0,1);
+    // } else if (r < 2.0) {
+    //   gl_FragColor = vec4(0,1,0,1);
+    // }
+
+    // Light falloff Visualization 1/r^2
+    // gl_FragColor = vec4(vec3(gl_FragColor)/(r*r), 1);
+
+    // N dot L
+    vec3 L = normalize(lightVector);
+    vec3 N = normalize(v_Normal);
+    float nDotL = max(dot(L, N), 0.0);
+
+    // Reflection vector
+    vec3 R = reflect(-L, N);
+
+    // eye 
+    vec3 E = normalize(u_cameraPos - vec3(v_VertPos));
+
+    // Specular
+    float specular = pow(max(dot(E, R), 0.0), 64.0) * 0.8;
+
+    vec3 diffuse = vec3(1.0, 1.0, 0.9) * vec3(gl_FragColor) * nDotL * 0.7;
+    vec3 ambient = vec3(gl_FragColor) * 0.2;
+    if (u_lightOn) {
+      if (u_whichTexture == 0) {
+        gl_FragColor = vec4(specular + diffuse + ambient, 1.0);
+      }
+      else {
+        gl_FragColor = vec4(diffuse + ambient, 1.0);
+      }
+    }
   }`
 
 // Global variables
@@ -70,12 +103,15 @@ let a_UV;
 let u_FragColor;
 let u_Size;
 let u_ModelMatrix;
+let u_NormalMatrix;
 let u_ProjectionMatrix;
 let u_ViewMatrix;
 let u_GlobalRotateMatrix;
 let u_lightPos;
+let u_cameraPos;
+let u_lightOn;
 
-// Add these variables at the top with other global variables
+// Mouse and camera
 var g_lastMouseX = -1;
 var g_isMouseDown = false;
 
@@ -129,19 +165,39 @@ function connectVariablesToGLSL() {
     return;
   }
 
-   // Get the storage location of u_lightPos
-   u_lightPos = gl.getUniformLocation(gl.program, 'u_lightPos');
-   if (!u_lightPos) {
-     console.log('Failed to get the storage location of u_lightPos');
+  // Get the storage location of u_lightPos
+  u_lightPos = gl.getUniformLocation(gl.program, 'u_lightPos');
+  if (!u_lightPos) {
+    console.log('Failed to get the storage location of u_lightPos');
+    return;
+  }
+
+   // Get the storage location of u_cameraPos
+   u_cameraPos = gl.getUniformLocation(gl.program, 'u_cameraPos');
+   if (!u_cameraPos) {
+     console.log('Failed to get the storage location of u_cameraPos');
      return;
    }
- 
+
+  // Get the storage location of u_lightOn
+  u_lightOn = gl.getUniformLocation(gl.program, 'u_lightOn');
+  if (!u_lightOn) {
+    console.log('Failed to get the storage location of u_lightOn');
+    return;
+  }
 
   // Get the storage location of u_ModelMatrix
   u_ModelMatrix = gl.getUniformLocation(gl.program, 'u_ModelMatrix');
   if (!u_ModelMatrix) {
     console.log('Failed to get the storage location of u_ModelMatrix');
     return; 
+  }
+
+  // Get the storage location of u_NormalMatrix
+  u_NormalMatrix = gl.getUniformLocation(gl.program, 'u_NormalMatrix');
+  if (!u_NormalMatrix) {
+    console.log('Failed to get the storage location of u_NormalMatrix');
+    return;
   }
 
   // Get the storage location of u_GlobalRotateMatrix
@@ -195,11 +251,10 @@ function connectVariablesToGLSL() {
 let g_selectedColor = [1.0, 1.0, 1.0, 1.0]; 
 let g_selectedSize = 5;
 let g_globalAngle = 0;
-
 let g_normalOn = false;
-
 // holds light position
 let g_lightPos = [0, 1, -2];
+let g_lightOn = false;
 
 // map or world creation
 var g_map = [];
@@ -220,6 +275,10 @@ function addActionsForHTMLUI() {
   // Normalization on and off buttons
   document.getElementById('normalOn').onclick = function() {g_normalOn = true};
   document.getElementById('normalOff').onclick = function() {g_normalOn = false};
+
+  // Light on and off buttons
+  document.getElementById('lightOn').onclick = function() {g_lightOn = true};
+  document.getElementById('lightOff').onclick = function() {g_lightOn = false};
 
   // Sliders for light position
   document.getElementById('lightSlideX').addEventListener('mousemove', function(ev) {if(ev.buttons === 1) {g_lightPos[0] = this.value / 100; renderAllShapes();}});
@@ -471,11 +530,17 @@ function renderAllShapes() {
   // Pass the light position to GLSL
   gl.uniform3f(u_lightPos, g_lightPos[0], g_lightPos[1], g_lightPos[2]);
 
+  // Pass the camera position to GLSL
+  gl.uniform3f(u_cameraPos, g_camera.eye.x, g_camera.eye.y, g_camera.eye.z);
+
+  // Pass the light on/off to GLSL
+  gl.uniform1i(u_lightOn, g_lightOn);
+
   // Draw the light
   var light = new Cube();
   light.color = [2,2,0,1];
   light.matrix.translate(g_lightPos[0], g_lightPos[1], g_lightPos[2]);
-  light.matrix.scale(0.1, 0.1, 0.1);
+  light.matrix.scale(-0.1, -0.1, -0.1);
   light.matrix.translate(-.5, -.5, -.5);
   light.render();
 
@@ -488,19 +553,27 @@ function renderAllShapes() {
   floor.matrix.translate(-0.5, 0, -0.5);
   floor.render();
 
+  // Draw the sky
+  var sky = new Cube();
+  sky.color = [0.6, 0.8, 1.0, 1.0];
+  sky.matrix.scale(1000, 1000, 1000);
+  sky.matrix.translate(-0.5, -0.5, -0.5);
+  sky.render();
+
   // Draw cube
   var cube = new Cube();
   if (g_normalOn) cube.textureNum = -3;
   cube.color = [0.2, 0.8, 1.0, 1.0]; // Light blue for visibility
   cube.matrix.translate(5, 5, 5);    // Centered at origin
   cube.matrix.scale(-7, -7, -7);    
+  // cube.normalMatrix.setInverseOf(cube.matrix).transpose();
   cube.render();
 
   // Draw sphere
   var sphere = new Sphere();
-  if (g_normalOn) sphere.textureNum = -3;
-  sphere.color = [0.2, 0.8, 1.0, 1.0]; // Light blue for visibility
-  sphere.matrix.translate(2, 2, 2);    // Centered at origin
+  if (g_normalOn) sphere.textureNum =-2;
+  // sphere.color = [0.2, 0.8, 1.0, 1.0]; // Light blue for visibility
+  sphere.matrix.translate(1, 1, 1);    // Centered at origin
   sphere.matrix.scale(-1, -1, -1);        
   sphere.render();
 

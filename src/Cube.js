@@ -4,6 +4,7 @@ class Cube {
         this.type = "cube";
         this.color = [1.0, 1.0, 1.0, 1.0];
         this.matrix = new Matrix4();
+        this.normalMatrix = new Matrix4();
         this.textureNum = -2; // Default to using color
     }
 
